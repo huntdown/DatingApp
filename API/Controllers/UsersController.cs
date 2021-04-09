@@ -1,18 +1,18 @@
-using System.Security.Claims;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using API.Data;
 using API.DTOs;
 using API.Entities;
+using API.Extensions;
+using API.Helpers;
 using API.Interfaces;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Http;
-using API.Extensions;
-using API.Helpers;
 
 namespace API.Controllers
 {
@@ -22,13 +22,15 @@ namespace API.Controllers
         private readonly IUserRepository _userRepository;
         private readonly IMapper _mapper;
         private readonly IPhotoService _photoService;
-        public UsersController(IUserRepository userRepository, IMapper mapper, IPhotoService photoService)
+        public UsersController(IUserRepository userRepository, IMapper mapper, 
+            IPhotoService photoService)
         {
             _photoService = photoService;
             _mapper = mapper;
             _userRepository = userRepository;
         }
 
+        
         [HttpGet]
         public async Task<ActionResult<IEnumerable<MemberDto>>> GetUsers([FromQuery]UserParams userParams)
         {
@@ -36,14 +38,17 @@ namespace API.Controllers
             userParams.CurrentUsername = user.UserName;
 
             if (string.IsNullOrEmpty(userParams.Gender))
-                userParams.Gender = user.Gender == "male" ? "female": "male";
+                userParams.Gender = user.Gender == "male" ? "female" : "male";
+
             var users = await _userRepository.GetMembersAsync(userParams);
 
-            Response.AddPaginationHeader(users.CurrentPage, users.PageSize, users.TotalCount, users.TotalPages);
+            Response.AddPaginationHeader(users.CurrentPage, users.PageSize, 
+                users.TotalCount, users.TotalPages);
 
             return Ok(users);
         }
 
+        
         [HttpGet("{username}", Name = "GetUser")]
         public async Task<ActionResult<MemberDto>> GetUser(string username)
         {
@@ -53,8 +58,11 @@ namespace API.Controllers
         [HttpPut]
         public async Task<ActionResult> UpdateUser(MemberUpdateDto memberUpdateDto)
         {
+
             var user = await _userRepository.GetUserByUsernameAsync(User.GetUsername());
+
             _mapper.Map(memberUpdateDto, user);
+
             _userRepository.Update(user);
 
             if (await _userRepository.SaveAllAsync()) return NoContent();
@@ -71,7 +79,7 @@ namespace API.Controllers
 
             if (result.Error != null) return BadRequest(result.Error.Message);
 
-            var photo = new Photo 
+            var photo = new Photo
             {
                 Url = result.SecureUrl.AbsoluteUri,
                 PublicId = result.PublicId
@@ -86,11 +94,11 @@ namespace API.Controllers
 
             if (await _userRepository.SaveAllAsync())
             {
-                return CreatedAtRoute("GetUser", new {username = user.UserName},_mapper.Map<PhotoDto>(photo));
+                return CreatedAtRoute("GetUser", new {username = user.UserName} ,_mapper.Map<PhotoDto>(photo));
             }
                 
-            return BadRequest("Problem adding photo");
-            
+
+            return BadRequest("Problem addding photo");
         }
 
         [HttpPut("set-main-photo/{photoId}")]
@@ -108,7 +116,7 @@ namespace API.Controllers
 
             if (await _userRepository.SaveAllAsync()) return NoContent();
 
-            return BadRequest("Fail to set main photo");
+            return BadRequest("Failed to set main photo");
         }
 
         [HttpDelete("delete-photo/{photoId}")]
